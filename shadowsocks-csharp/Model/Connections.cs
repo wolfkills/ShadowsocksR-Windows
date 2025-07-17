@@ -14,7 +14,7 @@ namespace Shadowsocks.Model
                 {
                     sockets[socket] += 1;
                 }
-                else
+                else 
                 {
                     sockets[socket] = 1;
                 }
