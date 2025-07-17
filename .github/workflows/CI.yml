@@ -1,15 +1,20 @@
-name: CI
-on: [push, pull_request, workflow_dispatch]
+name: Create Release on Tag
+
+# 仅在推送 'v' 开头的标签时触发 (例如: v1.0, v2.3.4)
+on:
+  push:
+    tags:
+      - 'v*'
+
 env:
   ProjectName: ShadowsocksR
 
 jobs:
-
-  build:
-    name: Build
+  build-and-release:
+    name: Build and Release
     runs-on: windows-latest
     env:
-      SyncfusionLicenseKey: ${{ secrets.SyncfusionLicenseKey }}
+      # SyncfusionLicenseKey: ${{ secrets.SyncfusionLicenseKey }} # 如果不需要可以注释掉或删除
       NET_TFM: net9.0-windows
       Configuration: Release
 
@@ -23,10 +28,10 @@ jobs:
       uses: actions/setup-dotnet@v4
       with:
         dotnet-version: 9.0.x
-
-    - name: Setup NuGet Private Sources
-      shell: pwsh
-      run: dotnet nuget add source https://nuget.pkg.github.com/HMBSbige/index.json -n GitHub-HMBSbige -u HMBSbige -p ${{ secrets.GITHUB_TOKEN }} --store-password-in-clear-text
+        
+    # - name: Setup NuGet Private Sources
+    #   shell: pwsh
+    #   run: dotnet nuget add source https://nuget.pkg.github.com/HMBSbige/index.json -n GitHub-HMBSbige -u HMBSbige -p ${{ secrets.GITHUB_TOKEN }} --store-password-in-clear-text
 
     - name: Build .NET App
       shell: pwsh
@@ -40,71 +45,39 @@ jobs:
       shell: pwsh
       run: .\build.ps1 x86
 
-    - name: Upload .NET App
-      continue-on-error: true
-      if: ${{ !startsWith(github.ref, 'refs/tags/') }}
-      uses: actions/upload-artifact@v4
-      with:
-        name: ${{ env.ProjectName }}
-        path: shadowsocks-csharp\bin\${{ env.Configuration }}\${{ env.NET_TFM }}\publish\
-
-    - name: Upload x64
-      continue-on-error: true
-      if: ${{ !startsWith(github.ref, 'refs/tags/') }}
-      uses: actions/upload-artifact@v4
-      with:
-        name: ${{ env.ProjectName }}-Win64
-        path: shadowsocks-csharp\bin\${{ env.Configuration }}\${{ env.NET_TFM }}\win-x64\publish\
-
-    - name: Upload x86
-      continue-on-error: true
-      if: ${{ !startsWith(github.ref, 'refs/tags/') }}
-      uses: actions/upload-artifact@v4
-      with:
-        name: ${{ env.ProjectName }}-Win32
-        path: shadowsocks-csharp\bin\${{ env.Configuration }}\${{ env.NET_TFM }}\win-x86\publish\
-
     - name: Get tag
-      if: ${{ github.event_name == 'push' && startsWith(github.ref, 'refs/tags/') }}
       id: tag
       uses: dawidd6/action-get-tag@v1
 
-    - name: Package .NET App
-      if: ${{ github.event_name == 'push' && startsWith(github.ref, 'refs/tags/') }}
+    - name: Package .NET App, x64, and x86
       shell: pwsh
       run: |
         New-Item -ItemType Directory -Path C:\builtfiles -Force > $null
-        $zip_path = "C:\builtfiles\$env:ProjectName-${{ steps.tag.outputs.tag }}.7z"
-        7z a -mx9 "$zip_path" ".\shadowsocks-csharp\bin\$env:Configuration\$env:NET_TFM\publish\"
-        7z rn "$zip_path" publish $env:ProjectName
-        echo "NET_SHA256=$((Get-FileHash $zip_path -Algorithm SHA256).Hash)" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+        
+        # Package .NET App
+        $zip_path_app = "C:\builtfiles\$env:ProjectName-${{ steps.tag.outputs.tag }}.7z"
+        7z a -mx9 "$zip_path_app" ".\shadowsocks-csharp\bin\$env:Configuration\$env:NET_TFM\publish\"
+        7z rn "$zip_path_app" publish $env:ProjectName
+        echo "NET_SHA256=$((Get-FileHash $zip_path_app -Algorithm SHA256).Hash)" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+        
+        # Package x64
+        $zip_path_x64 = "C:\builtfiles\$env:ProjectName-Win64-${{ steps.tag.outputs.tag }}.7z"
+        7z a -mx9 "$zip_path_x64" ".\shadowsocks-csharp\bin\$env:Configuration\$env:NET_TFM\win-x64\publish\"
+        7z rn "$zip_path_x64" publish $env:ProjectName
+        echo "NET64_SHA256=$((Get-FileHash $zip_path_x64 -Algorithm SHA256).Hash)" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
 
-    - name: Package x64
-      if: ${{ github.event_name == 'push' && startsWith(github.ref, 'refs/tags/') }}
-      shell: pwsh
-      run: |
-        New-Item -ItemType Directory -Path C:\builtfiles -Force > $null
-        $zip_path = "C:\builtfiles\$env:ProjectName-Win64-${{ steps.tag.outputs.tag }}.7z"
-        7z a -mx9 "$zip_path" ".\shadowsocks-csharp\bin\$env:Configuration\$env:NET_TFM\win-x64\publish\"
-        7z rn "$zip_path" publish $env:ProjectName
-        echo "NET64_SHA256=$((Get-FileHash $zip_path -Algorithm SHA256).Hash)" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+        # Package x86
+        $zip_path_x86 = "C:\builtfiles\$env:ProjectName-Win32-${{ steps.tag.outputs.tag }}.7z"
+        7z a -mx9 "$zip_path_x86" ".\shadowsocks-csharp\bin\$env:Configuration\$env:NET_TFM\win-x86\publish\"
+        7z rn "$zip_path_x86" publish $env:ProjectName
+        echo "NET86_SHA256=$((Get-FileHash $zip_path_x86 -Algorithm SHA256).Hash)" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
 
-    - name: Package x86
-      if: ${{ github.event_name == 'push' && startsWith(github.ref, 'refs/tags/') }}
-      shell: pwsh
-      run: |
-        New-Item -ItemType Directory -Path C:\builtfiles -Force > $null
-        $zip_path = "C:\builtfiles\$env:ProjectName-Win32-${{ steps.tag.outputs.tag }}.7z"
-        7z a -mx9 "$zip_path" ".\shadowsocks-csharp\bin\$env:Configuration\$env:NET_TFM\win-x86\publish\"
-        7z rn "$zip_path" publish $env:ProjectName
-        echo "NET86_SHA256=$((Get-FileHash $zip_path -Algorithm SHA256).Hash)" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
-
-    - name: Create a new GitHub release if a new tag is pushed
+    - name: Create a new GitHub release
       uses: ncipollo/release-action@v1
-      if: ${{ github.event_name == 'push' && startsWith(github.ref, 'refs/tags/') }}
       with:
         token: ${{ secrets.GITHUB_TOKEN }}
-        name: v${{ steps.tag.outputs.tag }}
+        name: Release ${{ steps.tag.outputs.tag }} # 使用标签作为 Release 名称
+        tag: ${{ steps.tag.outputs.tag }} # 明确指定标签
         prerelease: true
         draft: false
         artifacts: C:\builtfiles\*
