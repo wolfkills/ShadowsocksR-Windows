@@ -2,7 +2,7 @@
 
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
-    <TargetFramework>net7.0-windows</TargetFramework>
+    <TargetFramework>net9.0-windows</TargetFramework>
     <LangVersion>latest</LangVersion>
     <UseWPF>true</UseWPF>
     <GenerateAssemblyTitleAttribute>false</GenerateAssemblyTitleAttribute>
@@ -58,6 +58,7 @@
     <PackageReference Include="Syncfusion.SfTreeView.WPF" Version="29.2.11" />
     <PackageReference Include="URIScheme" Version="5.0.0" />
     <PackageReference Include="WindowsProxy" Version="6.0.0" />
+    <PackageReference Include="WPF-UI" Version="4.0.3" />
     <PackageReference Include="WpfColorFontDialog" Version="1.0.8" />
     <PackageReference Include="ZXing.Net.Bindings.Windows.Compatibility" Version="0.16.13" />
   </ItemGroup>
